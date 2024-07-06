@@ -32,12 +32,17 @@ const userSchema = new mongoose.Schema({
 });
 
 const matchSchema = new mongoose.Schema({
-    match_id: String,
-    match_title: String,
-    match_level: Number,
-    match_image_url: String,
-    match_place: String,
-    match_member: [userSchema],
+    matchId: Number,
+    date: String,
+    time: String,
+    place: String,
+    matchTitle: String,
+    content: String,
+    max_member: Number,
+    image: String,
+    level: Number,
+    cur_member: Number,
+    match_members: [userSchema],
 });
 
 const User = mongoose.model('User', userSchema); // 스키마를 모델로 변환
@@ -51,9 +56,9 @@ app.post('/api/login', async (req, res) => {
     console.log(req.body);
     // 토큰 검증 및 사용자 정보 저장 로직 구현
 
-    console.log(`Image_url: ${image_url}`, `Nickname: ${profile_nickname}`); // 사용자 정보 콘솔에 출력
+    console.log(`Nickname: ${profile_nickname}`); // 사용자 정보 콘솔에 출력
 
-    const user = new User({ image_url, profile_nickname }); // 사용자 정보를 저장할 인스턴스 생성
+    const user = new User({ profile_nickname }); // 사용자 정보를 저장할 인스턴스 생성
 
     try {
         await user.save(); // 생성한 인스턴스(Document)를 DB에 저장
@@ -64,24 +69,132 @@ app.post('/api/login', async (req, res) => {
         res.status(500).send('Failed to save user info'); // 사용자 정보 저장 실패 시 응답
     }
 });
-
 app.post('/api/match', async (req, res) => {
-    const { match_id, match_title, match_level, match_image_url, match_place, match_member } = req.body;
+    const { matchId, date, time, place, matchTitle, content, max_member, image, level, cur_member } = req.body;
     console.log(req.body);
+    //const members = match_members.map(member => new User(member)); // 사용자 정보를 저장할 인스턴스 생성
 
-    const match = new Match({ match_id, match_title, match_level, match_image_url, match_place, match_member });
+    const match = new Match({
+        matchId,
+        date,
+        time,
+        place,
+        matchTitle,
+        content,
+        max_member,
+        image,
+        level,
+        cur_member,
+        //match_members: members,
+    });
 
     try {
-        await match.save();
-        console.log(match);
-        res.status(200).send('Match info received');
+        const savedMatch = await match.save();
+        console.log('Match saved successfully:', savedMatch); // 생성한 인스턴스(Document)를 DB에 저장
+        res.status(200).send(savedMatch); // 생성한 인스턴스(Document)를 DB에 저장
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Failed to save match info');
+        console.error('Error saving match:', err);
+        res.status(500).send('Failed to save match');
     }
 });
 
+// 특정 매치정보 조회 (GET)
+app.get('/api/match/:id', async (req, res) => {
+    try {
+        const match = await Match.findById(req.params.id);
+        if (!match) {
+            return res.status(404).send('Match not found');
+        }
+        res.status(200).send(match);
+    } catch (err) {
+        console.error('Error fetching match:', err);
+        res.status(500).send('Failed to fetch match');
+    }
+});
 
+// 매치 데이터 업데이트 (PUT)
+app.put('/api/match/:id', async (req, res) => {
+    const { matchId, date, time, place, matchTitle, content, max_member, image, level, cur_member } = req.body;
+
+    //const members = match_members.map(member => new User(member));
+
+    try {
+        const updatedMatch = await Match.findByIdAndUpdate(
+            req.params.id,
+            {
+                matchId,
+                date,
+                time,
+                place,
+                matchTitle,
+                content,
+                max_member,
+                image,
+                level,
+                cur_member,
+                //match_members: members,
+            },
+            { new: true }
+        );
+
+        if (!updatedMatch) {
+            return res.status(404).send('Match not found');
+        }
+
+        res.status(200).send(updatedMatch);
+    } catch (err) {
+        console.error('Error updating match:', err);
+        res.status(500).send('Failed to update match');
+    }
+});
+
+// 매치 데이터 삭제 (DELETE)
+app.delete('/api/match/:id', async (req, res) => {
+    try {
+        const deletedMatch = await Match.findByIdAndDelete(req.params.id);// 매치 데이터 삭제
+
+        if (!deletedMatch) {
+            return res.status(404).send('Match not found');
+        }
+
+        res.status(200).send('Match deleted');// 삭제 성공 메시지 응답
+    } catch (err) {
+        console.error('Error deleting match:', err);
+        res.status(500).send('Failed to delete match');
+    }
+});
+
+// 모든 매치정보 조회 (GET)
+app.get('/api/match', async (req, res) => {
+    try {
+        const matches = await Match.find();
+        res.status(200).send(matches);
+    } catch (err) {
+        console.error('Error fetching matches:', err);
+        res.status(500).send('Failed to fetch matches');
+    }
+});
+/*
+// 매치데이터 부분 업데이트 (PATCH)
+app.patch('/api/match/:id', async (req, res) => {
+    try {
+        const updatedMatch = await Match.findByIdAndUpdate(
+            req.params.id,
+            { $set: req.body },
+            { new: true }
+        );
+
+        if (!updatedMatch) {
+            return res.status(404).send('Match not found');
+        }
+
+        res.status(200).send(updatedMatch);
+    } catch (err) {
+        console.error('Error updating match:', err);
+        res.status(500).send('Failed to update match');
+    }
+});
+*/
 
 
 app.listen(port, () => {
