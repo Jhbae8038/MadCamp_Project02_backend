@@ -54,18 +54,12 @@ const User = mongoose.model("User", userSchema); // 스키마를 모델로 변�
 const Match = mongoose.model("Match", matchSchema);
 const addReservation = async (matchId, userId) => {
     try {
-        if (!mongoose.Types.ObjectId.isValid(matchId)) {
-            throw new Error('Invalid match ID format');
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            throw new Error('Invalid user ID format');
-        }
-        const match = await Match.findById(matchId);
+        const match = await Match.findOne({ matchId: matchId });
         if (!match) {
             throw new Error("Match not found");
         }
-        const user = await User.findById(userObjectId);
+
+        const user = await User.findOne({ user_id: userId });
         if (!user) {
             throw new Error("User not found");
         }
@@ -87,21 +81,14 @@ const addReservation = async (matchId, userId) => {
 
 const cancelReservation = async (matchId, userId) => {
     try {
-        if (!mongoose.Types.ObjectId.isValid(matchId)) {
-            throw new Error('Invalid match ID format');
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            throw new Error('Invalid user ID format');
-        }
-        const match = await Match.findById(matchId);
+        const match = await Match.findOne({ matchId: matchId });
         if (!match) {
             throw new Error("Match not found");
         }
 
         // 사용자 예약 정보 삭제
         match.match_members = match.match_members.filter(
-            (memberId) => !memberId.equals(userId)
+            (memberId) => memberId !== userId
         );
         match.cur_member = match.match_members.length;
         await match.save();
