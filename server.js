@@ -25,13 +25,13 @@ const port = process.env.PORT || 3000; // 포트 설정
 
 // 사용자 정보를 저장할 스키마 정의
 const userSchema = new mongoose.Schema({
-  user_id: String,
-  image_url: String,
-  profile_nickname: String,
-  memo: String,
-  level: Number,
-  team: String,
-  isFirstLogin: { type: Boolean, default: true },
+    user_id: String,
+    image_url: String,
+    profile_nickname: String,
+    memo: String,
+    level: Number,
+    team: String,
+    isFirstLogin: { type: Boolean, default: true },
 
     //email: String,
 });
@@ -48,69 +48,70 @@ const matchSchema = new mongoose.Schema({
     level: Number,
     cur_member: Number,
     match_members: [String],
+    user_id: String,
 });
 
 const User = mongoose.model("User", userSchema); // 스키마를 모델로 변환
 const Match = mongoose.model("Match", matchSchema);
 const addReservation = async (matchId, userId) => {
-  try {
-    const match = await Match.findOne({ matchId: matchId });
-    if (!match) {
-      throw new Error("Match not found");
+    try {
+        const match = await Match.findOne({ matchId: matchId });
+        if (!match) {
+            throw new Error("Match not found");
+        }
+
+        const user = await User.findOne({ user_id: userId });
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        // 중복 예약 방지
+        if (match.match_members.includes(userId)) {
+            throw new Error("User already reserved this match");
+        }
+
+        match.match_members.push(userId);
+        match.cur_member = match.match_members.length;
+        await match.save();
+        match.match_members.push(userId);
+        match.cur_member = match.match_members.length;
+        await match.save();
+
+        console.log("Reservation added successfully");
+    } catch (error) {
+        console.error("Error adding reservation:", error);
     }
-
-    const user = await User.findOne({ user_id: userId });
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // 중복 예약 방지
-    if (match.match_members.includes(userId)) {
-      throw new Error("User already reserved this match");
-    }
-
-    match.match_members.push(userId);
-    match.cur_member = match.match_members.length;
-    await match.save();
-    match.match_members.push(userId);
-    match.cur_member = match.match_members.length;
-    await match.save();
-
-    console.log("Reservation added successfully");
-  } catch (error) {
-    console.error("Error adding reservation:", error);
-  }
 };
 
 const cancelReservation = async (matchId, userId) => {
-  try {
-    const match = await Match.findOne({ matchId: matchId });
-    if (!match) {
-      throw new Error("Match not found");
+    try {
+        const match = await Match.findOne({ matchId: matchId });
+        if (!match) {
+            throw new Error("Match not found");
+        }
+
+        // 사용자 예약 정보 삭제
+        match.match_members = match.match_members.filter(
+            (memberId) => memberId !== userId
+        );
+        match.cur_member = match.match_members.length;
+        await match.save();
+
+        console.log("Reservation cancelled successfully");
+    } catch (error) {
+        console.error("Error cancelling reservation:", error);
     }
-
-    // 사용자 예약 정보 삭제
-    match.match_members = match.match_members.filter(
-      (memberId) => memberId !== userId
-    );
-    match.cur_member = match.match_members.length;
-    await match.save();
-
-    console.log("Reservation cancelled successfully");
-  } catch (error) {
-    console.error("Error cancelling reservation:", error);
-  }
 };
 
 const getUserReservations = async (userId) => {
-  try {
-    const matches = await Match.find({ match_members: userId });
+    try {
+        const matches = await Match.find({ match_members: userId });
 
-    return matches;
-  } catch (error) {
-    console.error("Error fetching reservations:", error);
-    throw error;
-  }
+        return matches;
+    } catch (error) {
+        console.error("Error fetching reservations:", error);
+        throw error;
+    }
 };
 
 // MongoDB 연결
@@ -134,99 +135,99 @@ app.post("/api/login", async (req, res) => {
     console.log(req.body);
     // 토큰 검증 및 사용자 정보 저장 로직 구현
 
-  console.log("Nickname: ${profile_nickname}"); // 사용자 정보 콘솔에 출력
+    console.log("Nickname: ${profile_nickname}"); // 사용자 정보 콘솔에 출력
 
-  //const user = new User({ profile_nickname }); // 사용자 정보를 저장할 인스턴스 생성
+    //const user = new User({ profile_nickname }); // 사용자 정보를 저장할 인스턴스 생성
 
-  let user = await User.findOne({ user_id: user_id });
-  let isFirstLogin = false;
+    let user = await User.findOne({ user_id: user_id });
+    let isFirstLogin = false;
 
-  if (user) {
-    // 기존 사용자 정보 업데이트
-    user.isFirstLogin = false;
-    user.profile_nickname = profile_nickname;
-    user.image_url = image_url;
-    user.access_token = access_token; // 토큰 저장을 원하면 추가
-  } else {
-    // 새로운 사용자 생성
-    user = new User({
-      user_id,
-      profile_nickname,
-      image_url,
-      access_token,
-      isFirstLogin: true,
-    });
-    isFirstLogin = true;
-  }
+    if (user) {
+        // 기존 사용자 정보 업데이트
+        user.isFirstLogin = false;
+        user.profile_nickname = profile_nickname;
+        user.image_url = image_url;
+        user.access_token = access_token; // 토큰 저장을 원하면 추가
+    } else {
+        // 새로운 사용자 생성
+        user = new User({
+            user_id,
+            profile_nickname,
+            image_url,
+            access_token,
+            isFirstLogin: true,
+        });
+        isFirstLogin = true;
+    }
 
-  try {
-    await user.save(); // 생성한 인스턴스(Document)를 DB에 저장
-    console.log(user);
-    res.status(200).json({ isFirstLogin }); // 사용자 정보 수신 성공 메시지 응답
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Failed to save user info"); // 사용자 정보 저장 실패 시 응답
-  }
+    try {
+        await user.save(); // 생성한 인스턴스(Document)를 DB에 저장
+        console.log(user);
+        res.status(200).json({ isFirstLogin }); // 사용자 정보 수신 성공 메시지 응답
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Failed to save user info"); // 사용자 정보 저장 실패 시 응답
+    }
 });
 
 app.post("/api/login", async (req, res) => {
-  const { access_token, user_id, image_url, profile_nickname, team, level } =
-    req.body;
+    const { access_token, user_id, image_url, profile_nickname, team, level } =
+        req.body;
 
-  console.log(req.body);
-  try {
-    let user = await User.findOne({ user_id });
-    if (!user) {
-      user = new User({
-        user_id: user_id,
-        image_url: image_url,
-        profile_nickname: profile_nickname,
-      });
-      await user.save();
-      return res.status(200).json({ message: "User info saved" });
+    console.log(req.body);
+    try {
+        let user = await User.findOne({ user_id });
+        if (!user) {
+            user = new User({
+                user_id: user_id,
+                image_url: image_url,
+                profile_nickname: profile_nickname,
+            });
+            await user.save();
+            return res.status(200).json({ message: "User info saved" });
+        }
+        res.status(200).json({ message: "User already exists" });
+    } catch (err) {
+        console.error("Error saving user info:", err);
+        res.status(500).json({ message: "Internal server error" });
     }
-    res.status(200).json({ message: "User already exists" });
-  } catch (err) {
-    console.error("Error saving user info:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
 });
 
 // API to check if the user is logging in for the first time
 app.get("/api/is-first-login/:userId", async (req, res) => {
-  const { userId } = req.params;
-  try {
-    const user = await User.findOne({ user_id: userId });
-    if (user) {
-      return res.status(200).json({ isFirstLogin: false });
+    const { userId } = req.params;
+    try {
+        const user = await User.findOne({ user_id: userId });
+        if (user) {
+            return res.status(200).json({ isFirstLogin: false });
+        }
+        res.status(200).json({ isFirstLogin: true });
+    } catch (err) {
+        console.error("Error checking first login:", err);
+        res.status(500).json({ message: "Internal server error" });
     }
-    res.status(200).json({ isFirstLogin: true });
-  } catch (err) {
-    console.error("Error checking first login:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
 });
 
 // 첫 로그인 사용자 정보 저장 엔드포인트
 app.post("/api/user-info", async (req, res) => {
-  const { user_id, level, team } = req.body;
-  console.log(req.body);
-  //const token = req.headers.authorization.split(' ')[1];
-  // Simulate finding user by token (in practice, decode the token to find user)
-  //const user_id = token; // For demonstration, assume token is user_id
-  try {
-    const user = await User.findOne({ user_id });
-    if (user) {
-      user.level = level;
-      user.team = team;
-      await user.save();
-      return res.status(200).json({ message: "User info saved successfully" });
+    const { user_id, level, team } = req.body;
+    console.log(req.body);
+    //const token = req.headers.authorization.split(' ')[1];
+    // Simulate finding user by token (in practice, decode the token to find user)
+    //const user_id = token; // For demonstration, assume token is user_id
+    try {
+        const user = await User.findOne({ user_id });
+        if (user) {
+            user.level = level;
+            user.team = team;
+            await user.save();
+            return res.status(200).json({ message: "User info saved successfully" });
+        }
+        res.status(404).json({ message: "User not found" });
+    } catch (err) {
+        console.error("Error saving user info:", err);
+        res.status(500).json({ message: "Internal server error" });
     }
-    res.status(404).json({ message: "User not found" });
-  } catch (err) {
-    console.error("Error saving user info:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
 });
 
 app.post("/api/match", async (req, res) => {
@@ -378,99 +379,107 @@ app.get("/api/match", async (req, res) => {
 
 // 모든 사용자정보 조회 (GET)
 app.get("/api/user", async (req, res) => {
-  try {
-    const users = await User.find();
-    res.status(200).send(users);
-  } catch (err) {
-    console.error("Error fetching users:", err);
-    res.status(500).send("Failed to fetch users");
-  }
+    try {
+        const users = await User.find();
+        res.status(200).send(users);
+    } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Failed to fetch users");
+    }
 });
 // 특정 사용자정보 조회 (GET)
-app.get("/api/user/:id", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).send("User not found");
+app.get('/api/user/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const user = await User.findOne({ user_id: id }); // 여기서 user_id를 필드 이름으로 사용
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json(user);
+    } catch (err) {
+        console.error('Error fetching user:', err);
+        res.status(500).json({ message: 'Internal server error' });
     }
-    res.status(200).send(user);
-  } catch (err) {
-    console.error("Error fetching user:", err);
-    res.status(500).send("Failed to fetch user");
-  }
 });
 // 사용자정보 업데이트 (PUT)
 
-app.put("/api/user/:id", async (req, res) => {
-  const { image_url, profile_nickname, memo, level } = req.body;
+app.put("/api/user/:user_id", async (req, res) => {
+    const { profile_nickname, memo, level, team } = req.body;
+    const { user_id } = req.params;
 
-  try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true }
-    );
-  } catch (err) {
-    console.error("Error updating user:", err);
-    res.status(500).send("Failed to update user");
-  }
+    try {
+        const updatedUser = await User.findOneAndUpdate(
+            { user_id: user_id }, // _id 대신 user_id로 검색
+            { $set: { profile_nickname, memo, level, team } },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).send("User not found");
+        }
+
+        res.status(200).json(updatedUser);
+    } catch (err) {
+        console.error("Error updating user:", err);
+        res.status(500).send("Failed to update user");
+    }
 });
 
 // 사용자정보 삭제 (DELETE)
 app.delete("/api/user/:id", async (req, res) => {
-  try {
-    const deletedUser = await User.findByIdAndDelete(req.params.id);
+    try {
+        const deletedUser = await User.findByIdAndDelete(req.params.id);
 
-    if (!deletedUser) {
-      return res.status(404).send("User not found");
+        if (!deletedUser) {
+            return res.status(404).send("User not found");
+        }
+
+        res.status(200).send("User deleted");
+    } catch (err) {
+        console.error("Error deleting user:", err);
+        res.status(500).send("Failed to delete user");
     }
-
-    res.status(200).send("User deleted");
-  } catch (err) {
-    console.error("Error deleting user:", err);
-    res.status(500).send("Failed to delete user");
-  }
 });
 
 // 특정 사용자 예약 내역 조회
 app.get("/api/user/:userId/reservations", async (req, res) => {
-  const { userId } = req.params;
-  //console.log(`Fetching reservations for user: ${userId}`); // 디버그 로그 추가
-  try {
-    const reservations = await getUserReservations(userId);
-    res.status(200).send(reservations);
-  } catch (error) {
-    console.error("Error fetching reservations:", error);
-    res.status(500).send(error.message);
-  }
+    const { userId } = req.params;
+    //console.log(`Fetching reservations for user: ${userId}`); // 디버그 로그 추가
+    try {
+        const reservations = await getUserReservations(userId);
+        res.status(200).send(reservations);
+    } catch (error) {
+        console.error("Error fetching reservations:", error);
+        res.status(500).send(error.message);
+    }
 });
 
 // 예약 추가
 app.post("/api/match/:matchId/reserve", async (req, res) => {
-  const { matchId } = req.params;
-  const { userId } = req.body;
+    const { matchId } = req.params;
+    const { userId } = req.body;
 
-  try {
-    await addReservation(matchId, userId);
-    res.status(200).send("Reservation added successfully");
-  } catch (error) {
-    console.error("Error adding reservation:", error);
-    res.status(500).send(error.message);
-  }
+    try {
+        await addReservation(matchId, userId);
+        res.status(200).send("Reservation added successfully");
+    } catch (error) {
+        console.error("Error adding reservation:", error);
+        res.status(500).send(error.message);
+    }
 });
 
 // 예약 취소
 app.post("/api/match/:matchId/cancel", async (req, res) => {
-  const { matchId } = req.params;
-  const { userId } = req.body;
+    const { matchId } = req.params;
+    const { userId } = req.body;
 
-  try {
-    await cancelReservation(matchId, userId);
-    res.status(200).send("Reservation cancelled successfully");
-  } catch (error) {
-    console.error("Error cancelling reservation:", error);
-    res.status(500).send(error.message);
-  }
+    try {
+        await cancelReservation(matchId, userId);
+        res.status(200).send("Reservation cancelled successfully");
+    } catch (error) {
+        console.error("Error cancelling reservation:", error);
+        res.status(500).send(error.message);
+    }
 });
 
 const multer = require("multer");
@@ -481,32 +490,32 @@ const fs = require("fs");
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
-    );
-  },
+    destination: (req, file, cb) => {
+        const uploadPath = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        cb(
+            null,
+            file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+        );
+    },
 });
 
 const upload = multer({ storage: storage });
 
 app.post("/api/upload", upload.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send("No file uploaded");
-  }
-  const image = `/uploads/${req.file.filename}`;
-  res.status(200).json({ image });
+    if (!req.file) {
+        return res.status(400).send("No file uploaded");
+    }
+    const image = `/uploads/${req.file.filename}`;
+    res.status(200).json({ image });
 });
 
 app.listen(port, () => {
-  console.log("Server is running on port ${port}");
+    console.log("Server is running on port ${port}");
 });
