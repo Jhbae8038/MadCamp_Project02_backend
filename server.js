@@ -133,11 +133,8 @@ app.post("/api/login", async (req, res) => {
     const { access_token, profile_nickname, user_id, image_url } = req.body; // 요청 바디에서 필요한 정보 추출
     console.log(req.body);
     // 토큰 검증 및 사용자 정보 저장 로직 구현
-
     console.log("Nickname: ${profile_nickname}"); // 사용자 정보 콘솔에 출력
-
     //const user = new User({ profile_nickname }); // 사용자 정보를 저장할 인스턴스 생성
-
     let user = await User.findOne({ user_id: user_id });
     let isFirstLogin = false;
 
@@ -158,7 +155,6 @@ app.post("/api/login", async (req, res) => {
         });
         isFirstLogin = true;
     }
-
     try {
         await user.save(); // 생성한 인스턴스(Document)를 DB에 저장
         console.log(user);
@@ -209,8 +205,8 @@ app.get("/api/is-first-login/:userId", async (req, res) => {
 
 // 첫 로그인 사용자 정보 저장 엔드포인트
 app.post("/api/user-info", async (req, res) => {
-    const { user_id, level, team } = req.body;
-    console.log(req.body);
+    const { user_id, level, team, memo } = req.body;
+    console.log("first login user info:", req.body);
     //const token = req.headers.authorization.split(' ')[1];
     // Simulate finding user by token (in practice, decode the token to find user)
     //const user_id = token; // For demonstration, assume token is user_id
@@ -218,6 +214,7 @@ app.post("/api/user-info", async (req, res) => {
         const user = await User.findOne({ user_id });
         if (user) {
             user.level = level;
+            user.memo = memo;
             user.team = team;
             await user.save();
             return res.status(200).json({ message: "User info saved successfully" });
