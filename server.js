@@ -73,9 +73,6 @@ const addReservation = async (matchId, userId) => {
         match.match_members.push(userId);
         match.cur_member = match.match_members.length;
         await match.save();
-        match.match_members.push(userId);
-        match.cur_member = match.match_members.length;
-        await match.save();
 
         console.log("Reservation added successfully");
     } catch (error) {
@@ -210,7 +207,7 @@ app.get("/api/is-first-login/:userId", async (req, res) => {
 
 // 첫 로그인 사용자 정보 저장 엔드포인트
 app.post("/api/user-info", async (req, res) => {
-    const { user_id, level, team } = req.body;
+    const { user_id, level, team, memo } = req.body;
     console.log(req.body);
     //const token = req.headers.authorization.split(' ')[1];
     // Simulate finding user by token (in practice, decode the token to find user)
@@ -220,6 +217,7 @@ app.post("/api/user-info", async (req, res) => {
         if (user) {
             user.level = level;
             user.team = team;
+            user.memo = memo;
             await user.save();
             return res.status(200).json({ message: "User info saved successfully" });
         }
