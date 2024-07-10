@@ -25,3 +25,7 @@ build/
 *.tmp
 *.log
 *.swp
+
+# 사진
+uploads/
+*.jpg

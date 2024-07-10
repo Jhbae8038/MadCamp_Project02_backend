@@ -48,7 +48,6 @@ const matchSchema = new mongoose.Schema({
     level: Number,
     cur_member: Number,
     match_members: [String],
-    user_id: String,
 });
 
 const User = mongoose.model("User", userSchema); // 스키마를 모델로 변환
@@ -73,7 +72,6 @@ const addReservation = async (matchId, userId) => {
         match.match_members.push(userId);
         match.cur_member = match.match_members.length;
         await match.save();
-
         console.log("Reservation added successfully");
     } catch (error) {
         console.error("Error adding reservation:", error);
@@ -131,11 +129,8 @@ app.post("/api/login", async (req, res) => {
     const { access_token, profile_nickname, user_id, image_url } = req.body; // 요청 바디에서 필요한 정보 추출
     console.log(req.body);
     // 토큰 검증 및 사용자 정보 저장 로직 구현
-
     console.log("Nickname: ${profile_nickname}"); // 사용자 정보 콘솔에 출력
-
     //const user = new User({ profile_nickname }); // 사용자 정보를 저장할 인스턴스 생성
-
     let user = await User.findOne({ user_id: user_id });
     let isFirstLogin = false;
 
@@ -156,7 +151,6 @@ app.post("/api/login", async (req, res) => {
         });
         isFirstLogin = true;
     }
-
     try {
         await user.save(); // 생성한 인스턴스(Document)를 DB에 저장
         console.log(user);
@@ -208,7 +202,7 @@ app.get("/api/is-first-login/:userId", async (req, res) => {
 // 첫 로그인 사용자 정보 저장 엔드포인트
 app.post("/api/user-info", async (req, res) => {
     const { user_id, level, team, memo } = req.body;
-    console.log(req.body);
+    console.log("first login user info:", req.body);
     //const token = req.headers.authorization.split(' ')[1];
     // Simulate finding user by token (in practice, decode the token to find user)
     //const user_id = token; // For demonstration, assume token is user_id
@@ -216,8 +210,8 @@ app.post("/api/user-info", async (req, res) => {
         const user = await User.findOne({ user_id });
         if (user) {
             user.level = level;
-            user.team = team;
             user.memo = memo;
+            user.team = team;
             await user.save();
             return res.status(200).json({ message: "User info saved successfully" });
         }
@@ -240,6 +234,7 @@ app.post("/api/match", async (req, res) => {
         image,
         level,
         cur_member,
+        user_id,
     } = req.body;
     console.log(req.body);
     //const members = match_members.map(member => new User(member)); // 사용자 정보를 저장할 인스턴스 생성
@@ -255,6 +250,7 @@ app.post("/api/match", async (req, res) => {
         image,
         level,
         cur_member,
+        user_id,
         //creatorId,
         //match_members: members,
     });
@@ -296,11 +292,12 @@ app.put("/api/match/:id", async (req, res) => {
         image,
         level,
         cur_member,
+        user_id,
         //creatorId, // 요청에서 작성자 정보 추출
     } = req.body;
 
     try {
-        const match = await Match.findById(req.params.id);
+        const match = await Match.findOne({ matchId: matchId });
 
         if (!match) {
             return res.status(404).send("Match not found");
@@ -313,8 +310,8 @@ app.put("/api/match/:id", async (req, res) => {
         //     .send("Unauthorized: Only the creator can update the match");
         // }
 
-        const updatedMatch = await Match.findByIdAndUpdate(
-            req.params.id,
+        const updatedMatch = await Match.findOneAndUpdate(
+            { matchId: matchId },
             {
                 matchId,
                 date,
@@ -326,6 +323,7 @@ app.put("/api/match/:id", async (req, res) => {
                 image,
                 level,
                 cur_member,
+                user_id,
             },
             { new: true }
         );
@@ -339,23 +337,22 @@ app.put("/api/match/:id", async (req, res) => {
 
 // 매치 데이터 삭제 (DELETE)
 app.delete("/api/match/:id", async (req, res) => {
-    const { creatorId } = req.body; // 요청에서 작성자 정보 추출
+    const { matchId } = req.params.id; // 요청에서 작성자 정보 추출
+
+    console.log(matchId);
 
     try {
-        const match = await Match.findById(req.params.id);
+        const match = await Match.findOne({ matchId: req.params.id });
+
+        console.log(match);
 
         if (!match) {
             return res.status(404).send("Match not found");
         }
 
-        // // 작성자 검증
-        // if (match.creatorId !== creatorId) {
-        //   return res
-        //     .status(403)
-        //     .send("Unauthorized: Only the creator can delete the match");
-        // }
-
-        const deletedMatch = await Match.findByIdAndDelete(req.params.id);
+        const deletedMatch = await Match.findOneAndDelete({
+            matchId: req.params.id,
+        });
 
         res.status(200).send("Match deleted");
     } catch (err) {
@@ -386,17 +383,17 @@ app.get("/api/user", async (req, res) => {
     }
 });
 // 특정 사용자정보 조회 (GET)
-app.get('/api/user/:id', async (req, res) => {
+app.get("/api/user/:id", async (req, res) => {
     const { id } = req.params;
     try {
         const user = await User.findOne({ user_id: id }); // 여기서 user_id를 필드 이름으로 사용
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ message: "User not found" });
         }
         res.status(200).json(user);
     } catch (err) {
-        console.error('Error fetching user:', err);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error("Error fetching user:", err);
+        res.status(500).json({ message: "Internal server error" });
     }
 });
 // 사용자정보 업데이트 (PUT)
@@ -485,11 +482,11 @@ const path = require("path");
 const fs = require("fs");
 
 // 정적 파일 제공 설정
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadPath = path.join(__dirname, 'uploads');
+        const uploadPath = path.join(__dirname, "uploads");
         if (!fs.existsSync(uploadPath)) {
             fs.mkdirSync(uploadPath, { recursive: true });
         }
@@ -512,6 +509,30 @@ app.post("/api/upload", upload.single("image"), (req, res) => {
     }
     const image = `/uploads/${req.file.filename}`;
     res.status(200).json({ image });
+});
+
+// 평균 레벨 계산 엔드포인트 추가
+app.get("/api/match/:id/average-level", async (req, res) => {
+    try {
+        const match = await Match.findOne({ matchId: req.params.id });
+        if (!match) {
+            return res.status(404).send("Match not found");
+        }
+
+        const matchMembers = match.match_members;
+        if (matchMembers.length === 0) {
+            return res.status(200).json({ averageLevel: 0 });
+        }
+
+        const users = await User.find({ user_id: { $in: matchMembers } });
+        const totalLevel = users.reduce((sum, user) => sum + user.level, 0);
+        const averageLevel = parseFloat((totalLevel / users.length).toFixed(2));
+
+        res.status(200).json({ averageLevel });
+    } catch (err) {
+        console.error("Error fetching average level:", err);
+        res.status(500).send("Failed to fetch average level");
+    }
 });
 
 app.listen(port, () => {
